@@ -1,6 +1,11 @@
 # TreeCore Library
 
-TreeCore는 계층적 트리 구조를 효율적으로 관리하기 위한 Java 라이브러리입니다. Nested Set Model을 기반으로 구현되어 있어 대규모 트리 구조에서도 빠른 조회와 효율적인 수정이 가능합니다.
+TreeCore는 계층적 트리 구조를 효율적으로 관리하기 위한 Java 라이브러리입니다.  
+
+[Nested Set Model에 대한 자세한 내용 보기](https://float.tistory.com/339#google_vignette)  
+
+Nested Set Model을 기반으로 구현되어 있어 대규모 트리 구조에서도 빠른 조회와 효율적인 수정이 가능합니다.
+
 
 ## 🌟 주요 특징
 
