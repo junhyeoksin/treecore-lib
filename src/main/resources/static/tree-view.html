@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>트리 구조 시각화</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .tree ul {
+            padding-left: 25px;
+            margin: 0;
+        }
+        .tree li {
+            list-style-type: none;
+            margin: 10px 0;
+            position: relative;
+            padding-left: 25px;
+        }
+        .tree li::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            border-left: 1px solid #ccc;
+            border-bottom: 1px solid #ccc;
+            width: 20px;
+            height: 15px;
+        }
+        .tree li:last-child::before {
+            height: 15px;
+        }
+        .tree li::after {
+            content: "";
+            position: absolute;
+            top: 15px;
+            left: 0;
+            border-left: 1px solid #ccc;
+            height: calc(100% - 15px);
+        }
+        .tree li:last-child::after {
+            display: none;
+        }
+        .node {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        .node:hover {
+            background-color: #f1f3f5;
+        }
+        .node-icon {
+            margin-right: 8px;
+            font-size: 18px;
+        }
+        .folder .node-icon::before {
+            content: "📁";
+        }
+        .folder.open .node-icon::before {
+            content: "📂";
+        }
+        .document .node-icon::before {
+            content: "📄";
+        }
+        .item .node-icon::before {
+            content: "🔖";
+        }
+        .folder {
+            cursor: pointer;
+            font-weight: 500;
+            color: #3498db;
+        }
+        .document {
+            color: #2ecc71;
+        }
+        .item {
+            color: #e67e22;
+        }
+        .node-title {
+            flex-grow: 1;
+        }
+        .node-info {
+            font-size: 0.8em;
+            color: #7f8c8d;
+            margin-left: 10px;
+        }
+        .controls {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 0 5px;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .loading {
+            text-align: center;
+            padding: 30px;
+            font-style: italic;
+            color: #7f8c8d;
+        }
+        .error {
+            color: #e74c3c;
+            text-align: center;
+            padding: 20px;
+            background-color: #fadbd8;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .stats {
+            background-color: #f1f3f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 30px;
+            font-size: 14px;
+        }
+        .stats h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .stat-item {
+            background-color: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .stat-value {
+            font-weight: bold;
+            color: #3498db;
+        }
+        .debug-section {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+        .debug-section h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .debug-content {
+            max-height: 300px;
+            overflow-y: auto;
+            background-color: #f1f3f5;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>트리 구조 시각화 (재귀적)</h1>
+        
+        <div class="controls">
+            <button id="refreshBtn">새로고침</button>
+            <button id="expandAllBtn">모두 펼치기</button>
+            <button id="collapseAllBtn">모두 접기</button>
+            <button id="debugBtn">디버그 정보</button>
+        </div>
+        
+        <div id="loading" class="loading">트리 데이터를 불러오는 중...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        <div class="tree" id="treeContainer"></div>
+        
+        <div class="stats" id="statsContainer" style="display: none;">
+            <h3>트리 통계</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div>총 노드 수:</div>
+                    <div class="stat-value" id="totalNodes">0</div>
+                </div>
+                <div class="stat-item">
+                    <div>폴더 수:</div>
+                    <div class="stat-value" id="folderCount">0</div>
+                </div>
+                <div class="stat-item">
+                    <div>문서 수:</div>
+                    <div class="stat-value" id="documentCount">0</div>
+                </div>
+                <div class="stat-item">
+                    <div>최대 깊이:</div>
+                    <div class="stat-value" id="maxDepth">0</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="debug-section" id="debugSection" style="display: none;">
+            <h3>디버그 정보</h3>
+            <div class="debug-content" id="debugContent"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const treeContainer = document.getElementById('treeContainer');
+            const loadingElement = document.getElementById('loading');
+            const errorElement = document.getElementById('error');
+            const statsContainer = document.getElementById('statsContainer');
+            const debugSection = document.getElementById('debugSection');
+            const debugContent = document.getElementById('debugContent');
+            
+            const refreshBtn = document.getElementById('refreshBtn');
+            const expandAllBtn = document.getElementById('expandAllBtn');
+            const collapseAllBtn = document.getElementById('collapseAllBtn');
+            const debugBtn = document.getElementById('debugBtn');
+            
+            // 초기 로드
+            loadTreeData();
+            
+            // 새로고침 버튼
+            refreshBtn.addEventListener('click', function() {
+                loadTreeData();
+            });
+            
+            // 모두 펼치기 버튼 (한층 더 깊게)
+            expandAllBtn.addEventListener('click', function() {
+                const folderContents = document.querySelectorAll('.folder-contents');
+                folderContents.forEach(el => {
+                    el.style.display = 'block';
+                    el.parentElement.querySelector('.folder').classList.add('open');
+                    
+                    // 폴더 내부의 폴더들도 펼치기
+                    const innerFolders = el.querySelectorAll('.folder');
+                    innerFolders.forEach(folder => {
+                        const innerContents = folder.closest('li').querySelector('.folder-contents');
+                        if (innerContents) {
+                            innerContents.style.display = 'block';
+                            folder.classList.add('open');
+                        }
+                    });
+                });
+            });
+            
+            // 모두 접기 버튼 (한층 위로)
+            collapseAllBtn.addEventListener('click', function() {
+                const folderContents = document.querySelectorAll('.folder-contents');
+                folderContents.forEach(el => {
+                    const li = el.closest('li');
+                    if (!li.classList.contains('root-node')) {
+                        el.style.display = 'none';
+                        const folder = li.querySelector('.folder');
+                        if (folder) {
+                            folder.classList.remove('open');
+                        }
+                    }
+                });
+            });
+            
+            // 디버그 버튼
+            debugBtn.addEventListener('click', function() {
+                const isVisible = debugSection.style.display !== 'none';
+                debugSection.style.display = isVisible ? 'none' : 'block';
+                debugBtn.textContent = isVisible ? '디버그 정보' : '디버그 정보 숨기기';
+            });
+            
+            // 트리 데이터 로드 함수
+            function loadTreeData() {
+                treeContainer.innerHTML = '';
+                loadingElement.style.display = 'block';
+                errorElement.style.display = 'none';
+                statsContainer.style.display = 'none';
+                
+                // 루트 노드 가져오기
+                fetch('/api/nodes/1')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('서버 응답 오류: ' + response.status);
+                        }
+                        return response.json();
+                    })
+                    .then(rootNode => {
+                        // 루트 노드의 자식 노드들 가져오기
+                        return fetch(`/api/nodes/children/${rootNode.id}`)
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error('서버 응답 오류: ' + response.status);
+                                }
+                                return response.json();
+                            })
+                            .then(childNodes => {
+                                // 트리 구조 구성
+                                const ul = document.createElement('ul');
+                                const rootLi = createNodeElement(rootNode);
+                                rootLi.classList.add('root-node');
+                                
+                                if (childNodes && childNodes.length > 0) {
+                                    const childUl = document.createElement('ul');
+                                    childUl.className = 'folder-contents';
+                                    childUl.style.display = 'block'; // 루트의 자식들은 항상 보이도록 설정
+                                    
+                                    // 각 자식 노드에 대해 자식 노드도 가져오기
+                                    const childPromises = childNodes.map(childNode => {
+                                        const childLi = createNodeElement(childNode);
+                                        
+                                        // 폴더인 경우 자식 노드 가져오기
+                                        if (childNode.type === 'folder') {
+                                            return fetch(`/api/nodes/children/${childNode.id}`)
+                                                .then(response => {
+                                                    if (!response.ok) {
+                                                        throw new Error('서버 응답 오류: ' + response.status);
+                                                    }
+                                                    return response.json();
+                                                })
+                                                .then(grandChildNodes => {
+                                                    if (grandChildNodes && grandChildNodes.length > 0) {
+                                                        const grandChildUl = document.createElement('ul');
+                                                        grandChildUl.className = 'folder-contents';
+                                                        grandChildUl.style.display = 'none'; // 초기에는 접힌 상태로 설정
+                                                        grandChildNodes.forEach(grandChildNode => {
+                                                            const grandChildLi = createNodeElement(grandChildNode);
+                                                            grandChildUl.appendChild(grandChildLi);
+                                                        });
+                                                        childLi.appendChild(grandChildUl);
+                                                    }
+                                                    childUl.appendChild(childLi);
+                                                });
+                                        } else {
+                                            childUl.appendChild(childLi);
+                                            return Promise.resolve();
+                                        }
+                                    });
+                                    
+                                    rootLi.appendChild(childUl);
+                                }
+                                
+                                ul.appendChild(rootLi);
+                                treeContainer.appendChild(ul);
+                                
+                                loadingElement.style.display = 'none';
+                                
+                                // 통계 업데이트 (모든 노드 수집)
+                                const allNodes = [rootNode];
+                                childNodes.forEach(childNode => {
+                                    allNodes.push(childNode);
+                                    if (childNode.type === 'folder') {
+                                        fetch(`/api/nodes/children/${childNode.id}`)
+                                            .then(response => response.json())
+                                            .then(grandChildNodes => {
+                                                if (grandChildNodes) {
+                                                    grandChildNodes.forEach(node => allNodes.push(node));
+                                                    updateStats(allNodes);
+                                                }
+                                            });
+                                    }
+                                });
+                                
+                                updateStats(allNodes);
+                                statsContainer.style.display = 'block';
+                                
+                                // 디버그 정보 업데이트
+                                debugContent.textContent = JSON.stringify(allNodes, null, 2);
+                            });
+                    })
+                    .catch(error => {
+                        console.error('트리 데이터 로드 오류:', error);
+                        loadingElement.style.display = 'none';
+                        errorElement.textContent = '트리 데이터를 불러오는 중 오류가 발생했습니다: ' + error.message;
+                        errorElement.style.display = 'block';
+                    });
+            }
+            
+            // 노드 요소 생성 함수
+            function createNodeElement(node) {
+                const li = document.createElement('li');
+                const nodeDiv = document.createElement('div');
+                nodeDiv.className = 'node ' + node.type;
+                
+                const iconSpan = document.createElement('span');
+                iconSpan.className = 'node-icon';
+                
+                const titleSpan = document.createElement('span');
+                titleSpan.className = 'node-title';
+                titleSpan.textContent = node.title;
+                
+                const infoSpan = document.createElement('span');
+                infoSpan.className = 'node-info';
+                infoSpan.textContent = `ID: ${node.id}, Level: ${node.level}`;
+                
+                nodeDiv.appendChild(iconSpan);
+                nodeDiv.appendChild(titleSpan);
+                nodeDiv.appendChild(infoSpan);
+                li.appendChild(nodeDiv);
+                
+                // 폴더인 경우 클릭 이벤트 추가
+                if (node.type === 'folder') {
+                    nodeDiv.classList.add('folder');
+                    nodeDiv.addEventListener('click', function(e) {
+                        const folderContents = li.querySelector('.folder-contents');
+                        if (folderContents) {
+                            const isVisible = folderContents.style.display !== 'none';
+                            folderContents.style.display = isVisible ? 'none' : 'block';
+                            nodeDiv.classList.toggle('open', !isVisible);
+                        }
+                        e.stopPropagation();
+                    });
+                }
+                
+                return li;
+            }
+            
+            // 트리 통계 업데이트
+            function updateStats(nodes) {
+                const totalNodes = nodes.length;
+                const folderCount = nodes.filter(node => node.type === 'folder').length;
+                const documentCount = nodes.filter(node => node.type === 'document').length;
+                
+                // 최대 깊이 계산
+                let maxDepth = 0;
+                nodes.forEach(node => {
+                    if (node.level > maxDepth) {
+                        maxDepth = node.level;
+                    }
+                });
+                
+                document.getElementById('totalNodes').textContent = totalNodes;
+                document.getElementById('folderCount').textContent = folderCount;
+                document.getElementById('documentCount').textContent = documentCount;
+                document.getElementById('maxDepth').textContent = maxDepth;
+            }
+        });
+    </script>
+</body>
+</html>
